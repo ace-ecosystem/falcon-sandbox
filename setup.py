@@ -14,7 +14,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 description = "Python client library and command line tool for the [Falcon Sandbox API](https://www.falcon-sandbox.com/docs/api/v2)."
 
 here = path.abspath(path.dirname(__file__))
