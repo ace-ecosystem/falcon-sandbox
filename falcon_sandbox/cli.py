@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import json
+import base64
 import logging
 import argparse
 import coloredlogs
@@ -220,9 +221,21 @@ def main():
                 else:
                     pprint.pprint(result) if not args.raw_json else print(result)
             elif args.screen_shots:
-                raise NotImplementedError()
+                target_dir = 'screenshots' if '{type}' in args.output_target_path else args.output_target_path
+                result = falcon.get_report_screenshots(args.job_id)
+                result.raise_for_status()
+                os.makedirs(target_dir, exist_ok=True)
+                screenshots = result.json()
+                for ss in screenshots:
+                    filepath = os.path.join(target_dir, ss['name'])
+                    with open(filepath, 'wb') as f:
+                        f.write(base64.b64decode(ss['image']))
+                    logging.info("Wrote {}".format(filepath))
             elif args.dropped_files:
-                raise NotImplementedError()
+                result, written_files = falcon.get_report_dropped_files(args.job_id, 'dropped_files')
+                result.raise_for_status()
+                for wf in written_files:
+                    logger.info("Wrote {}".format(wf))
             elif args.iocs:
                 args.output_target_path = args.output_target_path.format(type='iocs.csv') if '{type}' in args.output_target_path else args.output_target_path
                 result = falcon.get_report_iocs(args.job_id, args.iocs)

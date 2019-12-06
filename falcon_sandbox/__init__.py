@@ -11,7 +11,7 @@ import io
 import os
 import shutil
 import zipfile
-
+import logging
 import requests
 
 # environment IDs
@@ -337,12 +337,14 @@ class FalconSandbox(object):
         raise NotImplementedError()
 
     def get_report_screenshots(self, _id):
+        logging.debug("Attempting to get report screenshots")
         return self.session.get(f'{self.url}/report/{_id}/screenshots', **self.requests_kwargs)
 
     def get_report_raw_dropped_file(self, _id, sha256, accept_encoding=None):
         raise NotImplementedError()
 
     def get_report_dropped_files(self, _id, target_dir):
+        logging.debug("Attempting to download dropped files.")
         os.makedirs(target_dir, exist_ok=True)
         target_zip = os.path.join(target_dir, 'archive.zip')
         with open(target_zip, 'wb') as fp:
@@ -356,34 +358,42 @@ class FalconSandbox(object):
             z.extractall(target_dir)
 
         os.remove(target_zip)
-    
+        
+        written_files = []
         for gz_file in os.listdir(target_dir):
             gzip_source_path = os.path.join(target_dir, gz_file)
             gzip_dest_path = os.path.join(target_dir, gz_file[:-3])
             with gzip.open(gzip_source_path, 'rb') as fp_in:
                 with open(gzip_dest_path, 'wb') as fp_out:
                     shutil.copyfileobj(fp_in, fp_out)
+                written_files.append(gzip_dest_path)
 
             os.remove(gzip_source_path)
 
-        return result
+        return result, written_files
     
     def get_report_iocs(self, _id, _type):
+        logging.debug("Getting report IOCs of type: {}".format(_type))
         return self.session.get(f'{self.url}/report/{_id}/ioc/{_type}', **self.requests_kwargs)
 
     def get_system_version(self):
+        logging.debug("Getting falcon system version")
         return self.session.get(f'{self.url}/system/version', **self.requests_kwargs)
 
     def get_system_environments(self):
+        logging.debug("Getting available falcon environments")
         return self.session.get(f'{self.url}/system/environments', **self.requests_kwargs)
 
     def get_system_stats(self):
+        logging.debug("Getting system statistics")
         return self.session.get(f'{self.url}/system/stats', **self.requests_kwargs)
 
     def get_system_configuration(self):
+        logging.debug("Getting system configuration")
         return self.session.get(f'{self.url}/system/configuration', **self.requests_kwargs)
     
     def get_system_queue_size(self):
+        logging.debug("Getting system queue size")
         return self.session.get(f'{self.url}/system/queue-size', **self.requests_kwargs)
 
     def get_system_total_submissions(self):
