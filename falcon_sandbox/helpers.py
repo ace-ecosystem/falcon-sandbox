@@ -3,7 +3,6 @@
 import os
 import logging
 from configparser import ConfigParser
-from falcon_sandbox import VALID_SEARCH_TERMS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -43,34 +42,16 @@ def load_config(profile='default', required_options=[]):
 
     return config[profile]
 
-def create_user_config(server, api_key, ignore_proxy):
+def create_user_config(client_id, client_secret, ignore_proxy):
     """Creates a minimal configuration for the user.
     """
     config = ConfigParser()
     # user specific
     config_path = os.path.join(os.path.expanduser("~"),'.config','falcon.ini')
-    config['default'] = {'server': server,
-                         'api_key': api_key,
+    config['default'] = {'client_id': client_id,
+                         'client_secret': client_secret,
                          'ignore_proxy': ignore_proxy}
     with open(config_path, 'w') as configfile:
         config.write(configfile)
     logging.info("Wrote user configuration to: {}".format(config_path))
     return
-
-def parse_search_terms(query_str):
-    """This function converts a string from field:value pairs into \*\*args that FalconSandbox.search_terms can recognize.
-    :param str query_str: A query string to be parsed where the term:value are comma seperated.
-    :return: \*\*args
-    """
-    ## SIMPLE implementation..
-    logger = logging.getLogger(__name__+".parse_search_terms")
-    query_parts = query_str.split(',')
-    args = {}
-    for part in query_parts:
-        field = part[:part.find(':')]
-        if field not in VALID_SEARCH_TERMS:
-            logger.critical("{} is not a valid search term. Valid terms: {}".format(field, VALID_SEARCH_TERMS))
-            return False
-        value = part[part.find(':')+1:]
-        args[field] = value
-    return args
