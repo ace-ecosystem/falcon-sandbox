@@ -32,13 +32,6 @@ FS_STATUS_RUNNING = 'running'
 FS_STATUS_ERROR = 'error'
 FS_STATUS_SUCCESS = 'success'
 
-# action scripts
-FS_ACTION_SCRIPT_DEFAULT = 'default'
-FS_ACTION_SCRIPT_MAX_ANTIEVASTION = 'default_maxantievasion'
-FS_ACTION_SCRIPT_RANDOM_FILES = 'default_randomfiles'
-FS_ACTION_SCRIPT_RANDOM_THEME = 'default_randomtheme'
-FS_ACTION_SCRIPT_OPEN_IE = 'default_openie'
-
 logger = logging.getLogger('falcon_sandbox')
 
 class FalconSandbox(FalconXSandbox):
@@ -52,24 +45,19 @@ class FalconSandbox(FalconXSandbox):
             target_path = target_path.format(type='json') if '{type}' in target_path else target_path
 
         assert res['body']['resources'], f"Could not get any report. Check your submission ID: \n {res}"
-        res = json.dumps(res, indent=4) if debug else json.dumps(res['body']['resources'], indent=4)
+        res = res if debug else res['body']['resources']
 
         if download:
             with open(target_path, 'w') as f:
-                f.write(res)
+                f.write(json.dumps(res))
             logger.info(f"Wrote {target_path}")
         else:
-            print(res)
+            return res
 
-    def get_submissions(self, debug, submitting=False, *args, **kwargs):
+    def get_submissions(self, debug, *args, **kwargs):
         res = super().get_submissions(*args, parameters=None, **kwargs)
         assert res['body']['resources'], f"Could not get submission's status. Check response: \n {res}"
-
-        if submitting:
-            return res['body']['resources'][0]['state']
-
-        res = json.dumps(res, indent=4) if debug else json.dumps(res['body']['resources'], indent=4)
-        print(res)
+        return res if debug else res['body']['resources']
 
     def get_artifact(self, artifact_type, target_path, artifact_id=None, *args, **kwargs):
         res = super().get_reports(*args, parameters=None, **kwargs)
@@ -105,7 +93,7 @@ class FalconSandbox(FalconXSandbox):
                     fp.write(chunk)
             logger.info(f"Wrote {target_path}")
         else:
-            loggger.error(f'Cannot get the file. Check response: {artifact}')
+            logger.error(f'Cannot get the file. Check response: {artifact}')
 
     def get_screenshots(self, target_dir, screenshot_ids=None, *args, **kwargs):
         res = super().get_reports(*args, parameters=None, **kwargs)
@@ -114,8 +102,8 @@ class FalconSandbox(FalconXSandbox):
         screenshot_ids = res['body']['resources'][0]['sandbox'][0].get('screenshots_artifact_ids')
         
         if not screenshot_ids:
-            print(f'Screenshots are not available for this report.')
-            return
+            logger.info(f'Screenshots are not available for this report.')
+            return False
 
         os.makedirs(target_dir, exist_ok=True)
         for i, ss_id in enumerate(screenshot_ids):
@@ -125,8 +113,10 @@ class FalconSandbox(FalconXSandbox):
                 with open(filepath, 'wb') as fp:
                     fp.write(screenshot)
                 logger.info(f"Wrote {filepath}")
+                return True
             else:
                 logger.error(f'Cannot get screenshot. Check response: \n {screenshot}')
+                return False
 
     def get_sample(self, target_path, *args, **kwargs):
 
@@ -146,20 +136,6 @@ class FalconSandbox(FalconXSandbox):
             logger.info(f"Wrote {target_path}")
         else:
             logger.error(f'Cannot get the sample. Check response: {res}')
-
-    def delete_report(self, *args, **kwargs):
-        res = super().delete_report(*args, parameters=None, **kwargs)
-        if not res['body']['errors']:
-            logger.info(f"Report {kwargs['ids']} was sucessfully deleted")
-        else:
-            raise Exception(f"Could not get delete the report. Check response: \n {res}")
-
-    def delete_sample(self, *args, **kwargs):
-        res = super().delete_sample(*args, parameters=None, **kwargs)
-        if not res['body']['errors']:
-            logger.info(f"Sample {kwargs['ids']} was sucessfully deleted")
-        else:
-            raise Exception(f"Could not get delete the sample. Check response: \n {res}")
 
     def submit(self, environment_id, url=None, file=None, *args, **kwargs):
         data = {'environment_id': int(environment_id), 
@@ -196,4 +172,45 @@ class FalconSandbox(FalconXSandbox):
         if not submission_id:
             raise KeyError(f"Could not get submission_id. Check response \n {res}")
         logger.info(f"Got submission id {submission_id} for your submission")
-        return submission_id
+        return res['body']['resources'][0]
+
+    def query_hashes(self, hashes, debug, submission_id, *args, **kwargs):
+        submission_ids = []
+        for sha256 in hashes:
+            res = super().query_reports(sort="created_timestamp.desc", parameters=None, filter=f"sandbox.sha256:'{sha256}'")
+            if not res['body']['resources']:
+                logger.info(f"Could not get any submissions associated with the hash {sha256}")
+            else:
+                submission_ids.extend(res['body']['resources'])
+        if not submission_ids:
+            logger.warning(f"Could not get any submissions")
+            return None
+        if submission_id:
+            return submission_ids
+        report = self.get_reports(debug, 'falcon.report', False, True, ids=submission_ids)
+        return report
+
+    def query_reports(self, debug, fql_string, sort, limit, *args, **kwargs):
+        res = super().query_reports(sort=sort, parameters=None, filter=fql_string, limit=limit)
+        if res['body']['errors']:
+            return res if debug else res['body']['errors']
+        elif res['body']['resources']:
+            return res if debug else res['body']['resources']
+        else:
+            return "No matching reports found"
+
+
+    def delete_report(self, *args, **kwargs):
+        res = super().delete_report(*args, parameters=None, **kwargs)
+        if not res['body']['errors']:
+            logger.info(f"Report {kwargs['ids']} was sucessfully deleted")
+        else:
+            raise Exception(f"Could not get delete the report. Check response: \n {res}")
+
+    def delete_sample(self, *args, **kwargs):
+        res = super().delete_sample(*args, parameters=None, **kwargs)
+        if not res['body']['errors']:
+            logger.info(f"Sample {kwargs['ids']} was sucessfully deleted")
+        else:
+            raise Exception(f"Could not get delete the sample. Check response: \n {res}")
+
