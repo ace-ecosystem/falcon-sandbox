@@ -32,9 +32,21 @@ def main():
     parser_submit = subparsers.add_parser('submit', help='Upload and submit a sample')
     parser_submit.add_argument('-f', '--file', action='store', help="file to submit")
     parser_submit.add_argument('-u', '--url', action='store', help="url to submit")
-    parser_submit.add_argument('-e', '--environment_id', action='store', default='100', help='Enviroment to submit to. Default:100. Use "falcon_sandbox get system -e" to see availble environments')
+    parser_submit.add_argument('-e', '--environment_id', action='store', default='100', help='Enviroment to submit to. Default: 100')
     parser_submit.add_argument('-o', '--output-target-path', help="Where to write the result file (absolute path) (default: {submission_id}.falcon.{report-or-file_type})", default='{submission_id}.falcon.{type}')
     parser_submit.add_argument('--arguments', action='store', default={}, type=json.loads, help="Arguments to customize submission. Must be a dictionary")
+
+    parser_query = subparsers.add_parser('query', help='Query existing hashes, reports in our sandbox')
+    parser_query_subs = parser_query.add_subparsers(dest='query_commands')
+
+    parser_query_hashes = parser_query_subs.add_parser('hashes', help='Retrieve summary reports associated with the given hash')
+    parser_query_hashes.add_argument('hashes', nargs='+', help="Files' sha256 hash")
+    parser_query_hashes.add_argument('-id', '--submission-id', action='store_true', help="Only output the submission ids")
+
+    parser_query_reports = parser_query_subs.add_parser('reports', help='Find sandbox reports by providing a Falcon Query Language (FQL) filter.  Returns a set of report IDs that match your criteria.')
+    parser_query_reports.add_argument('fql_string', help="Filter string in the form of an FQL query")
+    parser_query_reports.add_argument('-s', '--sort', help="Optional sorting criteria. Default: 'created_timestamp.desc'", default='created_timestamp.desc')
+    parser_query_reports.add_argument('-l', '--limit', help="The maximum records to return. Default: 10 (Max: 5000)", type=int, default=10)
 
     parser_get = subparsers.add_parser('get', help='Get samples, artifacts, and results from the server')
     parser_get_subs = parser_get.add_subparsers(dest='get_commands')
@@ -50,13 +62,13 @@ def main():
     parser_get_report.add_argument('-m', '--memory-dumps', action='store_true', help="Get any available memory dumps for this submission")
     parser_get_report.add_argument('-ss', '--screenshots', action='store_true', help="Get the submission screen shots")
     
-    parser_get_sample = parser_get_subs.add_parser('sample', help='Retrieves the file associated with the given ID (SHA256)')
+    parser_get_sample = parser_get_subs.add_parser('sample', help='Retrieve the file associated with the given ID (SHA256)')
     parser_get_sample.add_argument('file_SHA256', help="the file SHA256")
     parser_get_sample.add_argument('-safe', '--password-protected', action='store_true', help="Zip the sample with password 'infected'")
     parser_get_sample.add_argument('-o', '--output-target-path', help="Where to write the sample file (absolute path) (default: {file_SHA256})", default='{file_SHA256}')
 
     parser_delete = subparsers.add_parser('delete', help="Delete reports or samples")
-    parser_delete.add_argument('-r', '--report', action='store', help="Delete a report based on the submission ID")
+    parser_delete.add_argument('-r', '--report', action='store', help="Delete a report based on the submission id")
     parser_delete.add_argument('-s', '--sample', action='store', help="Delete a sample based on the file SHA256")
 
     args = parser.parse_args()
@@ -85,17 +97,21 @@ def main():
     client_secret = args.client_secret if args.client_secret else config['client_secret']
 
     falcon = FalconSandbox(client_id=client_id, client_secret=client_secret)
-
     # if we have a submission_id after running the users commands the 
     # default behavior will be to wait for that job to complete
     # and write the results of the job to a local json file
     submission_id = None
+    if args.instruction == 'query':
+        if args.query_commands == 'hashes':
+            print(json.dumps(falcon.query_hashes(args.hashes, args.debug, args.submission_id), indent=4))
+        if args.query_commands == 'reports':
+            print(json.dumps(falcon.query_reports(args.debug, args.fql_string, args.sort, args.limit), indent=4))
 
     if args.instruction == 'submit':
         if args.file:
-            submission_id = falcon.submit(args.environment_id, file=args.file, **args.arguments)
+            submission_id = falcon.submit(args.environment_id, file=args.file, **args.arguments).get('id')
         if args.url:
-            submission_id = falcon.submit(args.environment_id, url=args.url, **args.arguments)
+            submission_id = falcon.submit(args.environment_id, url=args.url, **args.arguments).get('id')
 
     if args.instruction == 'get':
         if args.get_commands == 'report':
@@ -103,7 +119,7 @@ def main():
                 args.output_target_path = args.output_target_path.format(submission_id=args.submission_id, type='{type}').replace('[', '').replace(']', '').replace("'", '')
             if any((args.state, args.pcap, args.memory_dumps, args.iocs, args.screenshots)):            
                 if args.state:
-                    falcon.get_submissions(args.debug, ids=args.submission_id)
+                    print(json.dumps(falcon.get_submissions(args.debug, ids=args.submission_id), indent=4))
                 if args.pcap:
                     falcon.get_artifact('pcap', args.output_target_path, ids=args.submission_id)
                 if args.memory_dumps:
@@ -114,8 +130,9 @@ def main():
                     target_dir = f"{args.submission_id}.screenshots".replace('[', '').replace(']', '').replace("'", '') if '{type}' in args.output_target_path else args.output_target_path
                     falcon.get_screenshots(target_dir, ids=args.submission_id)
             else:
-                falcon.get_reports(args.debug, args.output_target_path, args.download, args.summary, ids=args.submission_id)
-        
+                report = falcon.get_reports(args.debug, args.output_target_path, args.download, args.summary, ids=args.submission_id)
+                if not args.download: print(json.dumps(report, indent=4))
+                
         if args.get_commands == 'sample':
             if args.output_target_path == '{file_SHA256}':
                 args.output_target_path = args.output_target_path.format(file_SHA256=args.file_SHA256)
@@ -129,14 +146,14 @@ def main():
 
     if submission_id:
         time.sleep(1)
-        submission_state = falcon.get_submissions(args.debug, submitting=True, ids=submission_id)
+        submission_state = falcon.get_submissions(args.debug, submitting=True, ids=submission_id)[0].get('state')
         initial_time = int(time.time())
         while submission_state == FS_STATUS_CREATED or submission_state == FS_STATUS_RUNNING:
             if (int(time.time()) - initial_time) % 10 == 0:
                 initial_time += 9 # essentially, log again about every 9 seconds
                 logger.info(f"Submission {submission_id} is in {submission_state.upper()} state...")
-                submission_state = falcon.get_submissions(args.debug, submitting=True, ids=submission_id)
+                submission_state = falcon.get_submissions(args.debug, ids=submission_id)[0].get('state')
         logger.info(f"Submission {submission_id} has moved to {submission_state.upper()} state")
         if args.output_target_path == '{submission_id}.falcon.{type}':
-            args.output_target_path = args.output_target_path.format(submission_id=args.submission_id, type='{type}')
+            args.output_target_path = args.output_target_path.format(submission_id=submission_id, type='{type}')
         falcon.get_reports(args.debug, args.output_target_path, True, False, ids=submission_id)

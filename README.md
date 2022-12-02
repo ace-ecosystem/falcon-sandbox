@@ -13,47 +13,37 @@ When installed, a command line script named 'falcon-sandbox' is supplied that ca
 The command line script looks for the configuration settings it needs at ``~/<current-user>/.config/falcon.ini``. The script will prompt you for the information it needs and write that file on the first execution if the file doesn't already exist. Like so:
 
 ```
-$ falcon-sandbox get system -v
-2019-11-22 16:46:38 analysis falcon_sandbox.helpers.load_config[8545] CRITICAL Didn't find any config files defined at these paths: ['/data/home/user/.config/falcon.ini']
-Did not find user configuration, would you like to create one? [Y/n] 
-FQDN of your Falcon sandbox server: private.falcon-sandbox.com
-Your API key: oki53wxinm7ep8ja4ucomuyerfake5o9zi5bipvqvxskycrqxcfzqwkeea5ouvxg3
-Do you need to use the system proxy to connect to the sandbox? [Y/n] 
-2019-11-22 16:46:54 analysis root[8545] INFO Wrote user configuration to: /data/home/user/.config/falcon.ini
-{'api': '2.6.0', 'instance': '8.6.1-0a10823e3', 'sandbox': '8.30'}
+$ falcon-sandbox
+2022-12-01 21:47:04 ace-dev2 falcon_sandbox.helpers.load_config[1112363] CRITICAL Didn't find any config files defined at these paths: ['/data/home/user/.config/falcon.ini']
+Did not find user configuration, would you like to create one? [Y/n]Y
+Client ID of your API client: 2d21b31ed3543rffe333ce872bf5111
+Client secret associated with the client ID: 3OxAA30EexkYi17BoOOhJwDHFxpusA23zd23a4axz
+Do you need to use the system proxy to connect to the sandbox? [Y/n] N
+2022-12-01 21:48:59 ace-dev2 root[1112363] INFO Wrote user configuration to: /data/home/user/.config/falcon.ini
 ```
 
 The root level help:
 ```
 $ falcon-sandbox -h
-usage: falcon-sandbox [-h] [-d] [--ignore-proxy] [--server-fqdn SERVER_FQDN]
-                      [--api-key API_KEY] [--raw-json] [-w WRITE_OUTPUT]
-                      [-t {xml,json,html,pdf,maec,stix,misp,misp-json,openioc}]
-                      {search,submit,get} ...
+usage: falcon-sandbox [-h] [-d] [--ignore-proxy] [--client-id CLIENT_ID] [--client-secret CLIENT_SECRET] {submit,query,get,delete} ...
 
-A command line client for interacting with the Falcon Sandbox library written
-for the ACE Ecosystem.
+A command line client for interacting with the Falcon Sandbox library written for the ACE Ecosystem.
 
 positional arguments:
-  {search,submit,get}
-    search              Search your Falcon sandbox
-    submit              Submit a sample.
-    get                 get info, artifacts, and results from the server.
+  {submit,query,get,delete}
+    submit              Upload and submit a sample
+    query               Query existing hashes, reports in our sandbox
+    get                 Get samples, artifacts, and results from the server
+    delete              Delete reports or samples
 
 optional arguments:
   -h, --help            show this help message and exit
-  -d, --debug           set logging to DEBUG
-  --ignore-proxy        ignore system proxy.
-  --server-fqdn SERVER_FQDN
-                        The fqdn of your Falcon sandbox server. Overrides
-                        config.
-  --api-key API_KEY     Pass an api key to use. Overrides any configured api
-                        key.
-  --raw-json            return the raw json results (don't pretty print)
-  -w WRITE_OUTPUT, --write-output WRITE_OUTPUT
-                        specify the name of a file to write results.
-  -t {xml,json,html,pdf,maec,stix,misp,misp-json,openioc}, --report-type {xml,json,html,pdf,maec,stix,misp,misp-json,openioc}
-                        The type of report you want. Default is json.
+  -d, --debug           Set logging to DEBUG
+  --ignore-proxy        Ignore system proxy
+  --client-id CLIENT_ID
+                        Pass client id to use. Overrides config
+  --client-secret CLIENT_SECRET
+                        Pass client secret to use. Overrides any configured client secrect
 ```
 
 ## Examples
@@ -68,152 +58,144 @@ For submissions from the command line the default behavior is to wait for the su
 Be aware the result files can be quite large. They are chunked on download for that reason.
 ```
 $ falcon-sandbox submit -f PMNT_089_08102019.xls -e 100
-2019-11-22 17:08:54 analysis falcon_sandbox[11412] INFO Got job id 5dd85bd85c757507273ee1dc for PMNT_089_08102019.xls submission
-{'environment_id': 100,
- 'job_id': '5dd85bd85c757507273ee1dc',
- 'sha256': '6e5734c914eee85fcd56522857a00a10de76a6bb4fe533fd58d618acd21dfa1d',
- 'submission_id': '5dd85bd85c757507273ee1db'}
-2019-11-22 17:08:54 analysis falcon_sandbox[11412] INFO job 5dd85bd85c757507273ee1dc is in IN_QUEUE state..
-2019-11-22 17:09:21 analysis falcon_sandbox[11412] INFO job 5dd85bd85c757507273ee1dc is in IN_PROGRESS state..
+2022-12-01 22:13:49 ace-dev2 falcon_sandbox[1114996] INFO Uploading file...
+2022-12-01 22:13:50 ace-dev2 falcon_sandbox[1114996] INFO File uploaded sucessfully. Got the file's SHA256 and its name
+[{'sha256': '640deec892a7f8110eb0348f2546a8811ff9ed217ccdb7d6b65c46b20fe95964', 'file_name': 'WEEK  13  2022 xls'}]
+2022-12-01 22:13:50 ace-dev2 falcon_sandbox[1114996] INFO Got submission id 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb for your submission
+2022-12-01 22:13:52 ace-dev2 falcon_sandbox[1114996] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb is in RUNNING state...
+2022-12-01 22:14:01 ace-dev2 falcon_sandbox[1114996] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb is in RUNNING state...
 ...
-2019-11-22 17:15:03 analysis falcon_sandbox[11412] INFO job 5dd85bd85c757507273ee1dc is in IN_PROGRESS state..
-2019-11-22 17:15:12 analysis falcon_sandbox[11412] INFO Job 5dd85bd85c757507273ee1dc has moved to a SUCCESS state
-2019-11-22 17:15:12 analysis falcon_sandbox[11412] INFO Wrote 5dd85bd85c757507273ee1dc.falcon.json
+2022-12-01 22:21:13 ace-dev2 falcon_sandbox[1114996] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb is in RUNNING state...
+2022-12-01 22:21:13 ace-dev2 falcon_sandbox[1114996] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb has moved to SUCCESS state
+2022-12-01 22:21:13 ace-dev2 falcon_sandbox[1114996] INFO Wrote 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb.falcon.json
 ```
 
 #### URLs
 
 ```
-$ falcon-sandbox submit -u 'https://firebasestorage.googleapis.com/v0/b/gu0-81b2b.appspot.com/o/index.html'
-2019-11-22 17:16:48 analysis falcon_sandbox[12330] INFO Got job id 5dd85db23fec58f54c3ee1de for https://firebasestorage.googleapis.com/v0/b/gu0-81b2b.appspot.com/o/index.html submission
-{'environment_id': 100,
- 'job_id': '5dd85db23fec58f54c3ee1de',
- 'sha256': '678895ccfd6c05d3f3bfba70fdea60a274181de66d94f356897d7d67875829a0',
- 'submission_id': '5dd85db23fec58f54c3ee1dd',
- 'submission_type': 'page_url'}
-2019-11-22 17:16:48 analysis falcon_sandbox[12330] INFO job 5dd85db23fec58f54c3ee1de is in IN_QUEUE state..
-2019-11-22 17:16:57 analysis falcon_sandbox[12330] INFO job 5dd85db23fec58f54c3ee1de is in IN_QUEUE state..
+$ falcon-sandbox submit -u 'https://firebasestorage.googleapis.com/v0/b/gu0-81b2b.appspot.m/o/index.html'
+2022-12-02 02:15:54 ace-dev2 falcon_sandbox[1122593] INFO Got submission id 25ebccb63ffb4061889c708a87b55a2d_cc5a4e7eed724adabd9d2fcdf602fe97 for your submission
+2022-12-02 02:15:56 ace-dev2 falcon_sandbox[1122593] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_cc5a4e7eed724adabd9d2fcdf602fe97 is in RUNNING state...
+2022-12-02 02:16:05 ace-dev2 falcon_sandbox[1122593] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_cc5a4e7eed724adabd9d2fcdf602fe97 is in RUNNING state...
 ...
-2019-11-22 17:23:33 analysis falcon_sandbox[12330] INFO job 5dd85db23fec58f54c3ee1de is in IN_PROGRESS state..
-2019-11-22 17:23:40 analysis falcon_sandbox[12330] INFO Job 5dd85db23fec58f54c3ee1de has moved to a SUCCESS state
-2019-11-22 17:23:41 analysis falcon_sandbox[12330] INFO Wrote 5dd85db23fec58f54c3ee1de.falcon.json
+2022-12-02 02:34:41 ace-dev2 falcon_sandbox[1122593] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_cc5a4e7eed724adabd9d2fcdf602fe97 is in RUNNING state...
+2022-12-02 02:34:41 ace-dev2 falcon_sandbox[1122593] INFO Submission 25ebccb63ffb4061889c708a87b55a2d_cc5a4e7eed724adabd9d2fcdf602fe97 has moved to SUCCESS state
+2022-12-02 02:34:41 ace-dev2 falcon_sandbox[1122593] INFO Wrote 25ebccb63ffb4061889c708a87b55a2d_cc5a4e7eed724adabd9d2fcdf602fe97.falcon.json
 ```
 
 ### Get
 
-Get system info, analysis overviews, and all the various report data.
+Get samples, analysis summaries, and all the various report data.
 
-#### Get Overview Summary
-
-```
-$ falcon-sandbox get overview 6e5734c914eee85fcd56522857a00a10de76a6bb4fe533fd58d618acd21dfa1d -s
-{'analysis_start_time': '2019-10-15T19:14:46+00:00',
- 'last_multi_scan': '2019-11-22T21:37:49+00:00',
- 'multiscan_result': None,
- 'sha256': '6e5734c914eee85fcd56522857a00a10de76a6bb4fe533fd58d618acd21dfa1d',
- 'threat_score': 55,
- 'verdict': 'malicious'}
-```
-
-#### Get/Download the original sample.
+#### Get report summary
 
 ```
-$ falcon-sandbox get report 5da61a9d5c75754c1165dd98 -s
-2019-11-22 17:00:53 analysis falcon_sandbox[10517] INFO Wrote PMNT_089_08102019.xls
+$ falcon-sandbox get report -sum 25ebccb63ffb4061889c708a87b55a2d_f375984f7ac54d309cfb056bea724b4f | grep "sandbox" -A 15
+  "sandbox": [
+      {
+          "sha256": "2c1d108fbb59bc295e862833324598367ed7f72ea2d38c115af2ec57332447e0",
+          "environment_id": 110,
+          "environment_description": "Windows 7 64 bit",
+          "submit_name": "Plan_Appro_22075_2022.12.01.xls",
+          "submission_type": "file",
+          "verdict": "no specific threat",
+          "file_type": "Composite Document File V2 Document, Little Endian, Os: Windows, Version 10.0, Code page: 1252, Author: floresq, Last Saved By: hollardt, Name of Creating Application: Microsoft Excel, Last Printed: Thu Dec  1 13:00:32 2022, Create Time/Date: Thu Dec  1 10:51:04 2022, Last Saved Time/Date: Thu Dec  1 13:00:53 2022, Security: 0",
+          "sample_flags": [
+              "Extracted Files"
+          ],
+          "network_settings": "default"
+      }
+  ],
+  "verdict": "no specific threat",
+```
+
+#### Get/Download the original sample using sha256 hash
+
+```
+$ falcon-sandbox get sample 640deec892a7f8110eb0348f2546a8811ff9ed217ccdb7d6b65c46b20fe95964
+2022-12-02 02:41:10 ace-dev2 falcon_sandbox[1125306] INFO Found sample. Attempting to write it...
+2022-12-02 02:41:10 ace-dev2 falcon_sandbox[1125306] INFO Wrote 640deec892a7f8110eb0348f2546a8811ff9ed217ccdb7d6b65c46b20fe95964
 ```
 
 #### Get the entire report as json
 
 ```
-$ falcon-sandbox get report 5da61a9d5c75754c1165dd98 
-2019-11-22 17:03:00 analysis falcon_sandbox[10760] INFO Wrote 5da61a9d5c75754c1165dd98.falcon.json
+$ falcon-sandbox get report 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb -d
+2022-12-02 02:41:48 ace-dev2 falcon_sandbox[1125365] INFO Wrote 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb.falcon.json
 $
-$ cat 5da61a9d5c75754c1165dd98.falcon.json | jq '.' | grep verdict -B 5 -A 5
-        "threatsigimpact": "70",
-        "theoreticalmaxthreatsigimpact": "5718",
-        "theoreticalmaxthreatsigimpact_practical": "2802",
-        "overallconfidence": "55"
-      },
-      "verdict": {
-        "threatlevel": "2",
-        "threatscore": "55",
-        "isreliable": "true"
-      },
-      "signatures_triplets": "",
-      "warnings": {
-        "warning": [
-          "Enforcing malicious verdict, as a reliable source indicates high confidence",
-          "Not all sources for indicator ID \"api-55\" are available in the report"
-        ]
-      },
-      "characteristics": {
-        "has_carved_files": "false",
+$ cat 25ebccb63ffb4061889c708a87b55a2d_21edf1887ebd45adb8cf800d5ab3f5bb.falcon.json | jq '.' | grep verdict -B 5 -A 5
+  "cid": "25ebccb63ffb4061889c708a87b55a2d",
+  "created_timestamp": "2022-12-01T22:13:50Z",
+  "origin": "apigateway",
+  "verdict": "suspicious",
+  "ioc_report_strict_csv_artifact_id": "2d68eaaf3fb164b1ea0826c5ede3d8a773b430a9ed3606bd94d60ada914ba958",
+  "ioc_report_broad_csv_artifact_id": "2d68eaaf3fb164b1ea0826c5ede3d8a773b430a9ed3606bd94d60ada914ba958",
+  "ioc_report_strict_json_artifact_id": "0deea78a387e35480dc580d8871dfd6aba458e711e0ca594330a6162e5633583",
+--
+      ],
+      "submit_name": "Week 13 2022.xls",
+      "submission_type": "file",
+      "verdict": "suspicious",
+      "threat_score": 35,
+      "windows_version_name": "Windows 7",
+      "windows_version_edition": "Professional",
+--
+  ],
+  "malquery": [
+    {
+      "verdict": "unknown",
+      "input": "640deec892a7f8110eb0348f2546a8811ff9ed217ccdb7d6b65c46b20fe95964",
+      "type": "sha256"
+    }
 ```
 
-#### Get Available Environments
+### Query
 
-```
-$ falcon-sandbox get system -e | grep description
-  'description': 'Windows 7 32 bit',
-  'description': 'Windows 7 64 bit',
-  'description': 'Windows 10 64 bit',
-  'description': 'Android Static Analysis',
-  'description': 'Linux (Ubuntu 16.04, 64 bit)',
-```
-
-### Search
-
-Search by hash(s), job_id(s), or terms.
+Query by hash(es), submission_id(s)
 
 #### Hashes
 
 ```
-$ falcon-sandbox search -ha c1af0757c42aa3790719a6d5f64c57c5aa40af22916213758807eafe5e9e7351,8b764864c36daa127e3980c015839b5d5c0f5f7b482e2fe42a3a70808778b6af | grep job_id
-  'job_id': '5dd6bd9f3fec583a48aeb00e',
-  'job_id': '5dd66fc35c7575d80caeb00e',
+$ falcon-sandbox query hashes 2c1d108fbb59bc295e862833324598367ed7f72ea2d38c115af2ec57332447e0 01d8f83e0842e0aebab58ee088a3dcb9cac3f5598538a372b2bd447dcda0dd9a -id
+[
+    "25ebccb63ffb4061889c708a87b55a2d_f375984f7ac54d309cfb056bea724b4f",
+    "25ebccb63ffb4061889c708a87b55a2d_7c8e103d63c84acaadfd215d114dece9"
+]
 ```
-#### Terms
 
-Very basic searching by terms.
+#### Reports
+
 ```
-$ falcon-sandbox search -t 'filename:PMNT_089_08102019.xls'
-{'count': 1,
- 'result': [{'analysis_start_time': '2019-10-15 19:14:46',
-             'av_detect': None,
-             'environment_description': 'Windows 7 64 bit',
-             'environment_id': 110,
-             'job_id': '5da61a9d5c75754c1165dd98',
-             'sha256': '6e5734c914eee85fcd56522857a00a10de76a6bb4fe533fd58d618acd21dfa1d',
-             'size': 705024,
-             'submit_name': 'PMNT_089_08102019.xls',
-             'threat_score': 55,
-             'type': None,
-             'type_short': 'xls',
-             'verdict': 'malicious',
-             'vx_family': None}],
- 'search_terms': [{'id': 'filename', 'value': 'PMNT_089_08102019.xls'}]}
- ```
+$ falcon-sandbox query reports "created_timestamp:>'2022-11-29' + verdict:'malicious'"
+[
+    "25ebccb63ffb4061889c708a87b55a2d_6b08a1146aec414ba302cffc860ec93b",
+    "25ebccb63ffb4061889c708a87b55a2d_12ae6fc71d9c43eab2295d3f6e283a7f",
+    "25ebccb63ffb4061889c708a87b55a2d_77fc2972e5544ca4bf773ac9628f6f8c",
+    "25ebccb63ffb4061889c708a87b55a2d_4084f337409a4194bfb5d6078eb05aea",
+    "25ebccb63ffb4061889c708a87b55a2d_cbab22b35db54b9eb075a583e92d7d1b",
+    "25ebccb63ffb4061889c708a87b55a2d_9deb3433f1434f038f44a98962dd7100"
+]
+```
 
- #### Job States
+#### Job States
 
  ```
- $ falcon-sandbox search -s 5dd6bd9f3fec583a48aeb00e,5dd66fc35c7575d80caeb00e
-[{'environment_id': 100,
-  'error': None,
-  'error_origin': None,
-  'error_type': None,
-  'job_id': '5dd6bd9f3fec583a48aeb00e',
-  'query': '5dd6bd9f3fec583a48aeb00e',
-  'related_reports': [],
-  'sha256': 'c1af0757c42aa3790719a6d5f64c57c5aa40af22916213758807eafe5e9e7351',
-  'state': 'SUCCESS'},
- {'environment_id': 100,
-  'error': None,
-  'error_origin': None,
-  'error_type': None,
-  'job_id': '5dd66fc35c7575d80caeb00e',
-  'query': '5dd66fc35c7575d80caeb00e',
-  'related_reports': [],
-  'sha256': '8b764864c36daa127e3980c015839b5d5c0f5f7b482e2fe42a3a70808778b6af',
-  'state': 'SUCCESS'}]
+ $ falcon-sandbox get report -st 25ebccb63ffb4061889c708a87b55a2d_f375984f7ac54d309cfb056bea724b4f 25ebccb63ffb4061889c708a87b55a2d_7c8e103d63c84acaadfd215d114dece9 | grep "state" -A 7
+  "state": "success",
+  "created_timestamp": "2022-12-01T13:29:06Z",
+  "sandbox": [
+      {
+          "sha256": "2c1d108fbb59bc295e862833324598367ed7f72ea2d38c115af2ec57332447e0",
+          "environment_id": 110,
+          "submit_name": "Plan_Appro_22075_2022.12.01.xls"
+      }
+--
+  "state": "success",
+  "created_timestamp": "2022-12-01T18:20:22Z",
+  "sandbox": [q
+      {
+          "sha256": "01d8f83e0842e0aebab58ee088a3dcb9cac3f5598538a372b2bd447dcda0dd9a",
+          "environment_id": 110,
+          "submit_name": "General_Terms_and_Conditions.pdf.pdf"
+      }
 ```
